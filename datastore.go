@@ -6,6 +6,8 @@ import (
 	"sync"
 )
 
+// Datastore stores Benchmark and allow to get then through filters.
+// Currently implemented as a simple list of benchmarks for each configuration.
 type Datastore struct {
 	data  map[Configuration][]BenchMark
 	mutex sync.RWMutex
