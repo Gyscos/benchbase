@@ -31,8 +31,11 @@ func sendResult(w io.Writer, result interface{}) error {
 	})
 }
 
-func makeHandlers(data *Datastore) {
-	http.HandleFunc("/push", func(w http.ResponseWriter, r *http.Request) {
+func setupHandlers(data *Datastore) {
+	r := http.NewServeMux()
+
+	r.HandleFunc("/push", func(w http.ResponseWriter, r *http.Request) {
+
 		var benchmark benchbase.Benchmark
 
 		dec := json.NewDecoder(r.Body)
@@ -47,7 +50,7 @@ func makeHandlers(data *Datastore) {
 		sendResult(w, "OK")
 	})
 
-	http.HandleFunc("/compare", func(w http.ResponseWriter, r *http.Request) {
+	r.HandleFunc("/compare", func(w http.ResponseWriter, r *http.Request) {
 		// Parameters are:
 		// * a compared spec
 		// * a set of values for that spec
@@ -92,7 +95,7 @@ func makeHandlers(data *Datastore) {
 		}
 	})
 
-	http.HandleFunc("/list", func(w http.ResponseWriter, r *http.Request) {
+	r.HandleFunc("/list", func(w http.ResponseWriter, r *http.Request) {
 		filterJson := r.FormValue("filter")
 		f := MakeFilter(filterJson)
 
@@ -102,4 +105,26 @@ func makeHandlers(data *Datastore) {
 			log.Println("Error writing json:", err)
 		}
 	})
+
+	http.Handle("/", &MyServer{r})
+}
+
+// Small wrapper to handle cross-origin
+type MyServer struct {
+	r http.Handler
+}
+
+func (s *MyServer) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
+	if origin := req.Header.Get("Origin"); origin != "" {
+		rw.Header().Set("Access-Control-Allow-Origin", origin)
+		rw.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+		rw.Header().Set("Access-Control-Allow-Headers",
+			"Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+	}
+	// Stop here if its Preflighted OPTIONS request
+	if req.Method == "OPTIONS" {
+		return
+	}
+	// Lets Gorilla work
+	s.r.ServeHTTP(rw, req)
 }

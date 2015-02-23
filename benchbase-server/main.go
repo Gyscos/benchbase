@@ -29,7 +29,7 @@ func main() {
 	data := GetDatastore(dataFilename)
 
 	// Makes the "push", "list" and "compare" HTTP handlers
-	makeHandlers(data)
+	setupHandlers(data)
 
 	// Save to disk every 5 minutes
 	go func() {
