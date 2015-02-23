@@ -47,6 +47,8 @@ func Project(data [][]*benchbase.Benchmark, spec string) [][][]*benchbase.Benchm
 	return Flatten(m)
 }
 
+// Takes a [j]map[k][i] and turns it into a map[k][j][i], while removing
+// entries k where map[k] only have 1 element.
 func Invert(mapList []map[string][]*benchbase.Benchmark) map[string][][]*benchbase.Benchmark {
 	n := len(mapList)
 

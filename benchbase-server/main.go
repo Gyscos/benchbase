@@ -8,87 +8,37 @@
 package main
 
 import (
-	"encoding/json"
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"time"
-
-	"github.com/Gyscos/benchbase"
 )
 
 func main() {
-	var dataFilename = "data.json"
+
+	var dataFilename string
+	var port int
+
+	flag.StringVar(&dataFilename, "d", "data.json", "File to save and load the database.")
+	flag.IntVar(&port, "p", 6666, "Port to listen to.")
+	flag.Parse()
+
 	data := GetDatastore(dataFilename)
 
-	http.HandleFunc("/push", func(w http.ResponseWriter, r *http.Request) {
-		var benchmark benchbase.Benchmark
+	// Makes the "push", "list" and "compare" HTTP handlers
+	makeHandlers(data)
 
-		dec := json.NewDecoder(r.Body)
-		err := dec.Decode(&benchmark)
-		if err != nil {
-			log.Println("Error reading JSON:", err)
-		}
-		// Now add it to the datastore
-		data.Store(benchmark)
-
-		fmt.Fprintln(w, `{"success":true}`)
-	})
-
-	http.HandleFunc("/compare", func(w http.ResponseWriter, r *http.Request) {
-		// Parameters are:
-		// * a compared spec
-		// * a set of values for that spec
-		// * a global filter
-
-		spec := r.FormValue("spec")
-
-		// The global filter
-		filterJson := r.FormValue("filter")
-		filter := MakeFilter(filterJson)
-		// Main data source
-		data := data.List(filter)
-
-		// The individual filters
-		valuesJSON := r.FormValue("values")
-		var values []string
-		err := json.Unmarshal([]byte(valuesJSON), &values)
-		if err != nil {
-			log.Println("Bad JSON received:", err)
-			return
-		}
-		// Dispatch according to spec value
-		dispatched := Dispatch(data, spec, values)
-		// Project onto similar configuration (except for spec)
-		projected := Project(dispatched, spec)
-
-		enc := json.NewEncoder(w)
-		err = enc.Encode(&projected)
-		if err != nil {
-			log.Println("Error writing json:", err)
-		}
-	})
-
-	http.HandleFunc("/list", func(w http.ResponseWriter, r *http.Request) {
-		filterJson := r.FormValue("filter")
-		f := MakeFilter(filterJson)
-
-		benchlist := data.List(f)
-		enc := json.NewEncoder(w)
-		err := enc.Encode(&benchlist)
-		if err != nil {
-			log.Println("Error writing json:", err)
-		}
-	})
-
+	// Save to disk every 5 minutes
 	go func() {
-		for _ = range time.Tick(30 * time.Second) {
+		for _ = range time.Tick(5 * time.Minute) {
 			data.SaveToDisk(dataFilename)
 		}
 	}()
 
+	// Also save to disk when pressing ^C
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
 	go func() {
@@ -99,6 +49,7 @@ func main() {
 		}
 	}()
 
-	log.Println("Now listening on port 6666")
-	log.Fatal(http.ListenAndServe(":6666", nil))
+	// And listen on the port
+	log.Println("Now listening on port", port)
+	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%v", port), nil))
 }
