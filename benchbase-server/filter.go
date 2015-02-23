@@ -19,6 +19,48 @@ var TrueFilter Filter = func(b *benchbase.Benchmark) bool {
 	return true
 }
 
+var patterns = []struct {
+	pattern    *regexp.Regexp
+	comparator func(a, b string) bool
+}{
+	{
+		regexp.MustCompile(`^([a-zA-Z0-9\.]+)=([a-zA-Z0-9\.]+)$`),
+		func(a, b string) bool {
+			return a == b
+		},
+	},
+	{
+		regexp.MustCompile(`^([a-zA-Z0-9\.]+)!=([a-zA-Z0-9\.]+)$`),
+		func(a, b string) bool {
+			return a != b
+		},
+	},
+	{
+		regexp.MustCompile(`^([a-zA-Z0-9\.]+)<([a-zA-Z0-9\.]+)$`),
+		func(a, b string) bool {
+			return Less(a, b)
+		},
+	},
+	{
+		regexp.MustCompile(`^([a-zA-Z0-9\.]+)>([a-zA-Z0-9\.]+)$`),
+		func(a, b string) bool {
+			return Less(b, a)
+		},
+	},
+	{
+		regexp.MustCompile(`^([a-zA-Z0-9\.]+)<=([a-zA-Z0-9\.]+)$`),
+		func(a, b string) bool {
+			return LessEq(a, b)
+		},
+	},
+	{
+		regexp.MustCompile(`^([a-zA-Z0-9\.]+)>=([a-zA-Z0-9\.]+)$`),
+		func(a, b string) bool {
+			return LessEq(b, a)
+		},
+	},
+}
+
 func MakeFilter(description string) Filter {
 	var filters []Filter
 	rules := strings.Split(description, ";")
@@ -42,83 +84,26 @@ func ParseTwoInts(a, b string) (int64, int64, error) {
 	return intA, intB, nil
 }
 
+func Less(a, b string) bool {
+	intA, intB, err := ParseTwoInts(a, b)
+	if err != nil {
+		return a < b
+	} else {
+		return intA < intB
+	}
+}
+
+func LessEq(a, b string) bool {
+	return (a == b) || (Less(a, b))
+}
+
 // Builds a Filter from the string description
 // Examples:
 // - host=c3.xlarge
 // - rev>=11158
 func MakeSimpleFilter(description string) Filter {
-	patterns := []struct {
-		pattern *regexp.Regexp
-		loader  func(a, b string) Filter
-	}{
-		{
-			regexp.MustCompile(`^([a-zA-Z0-9\.]+)=([a-zA-Z0-9\.]+)$`),
-			func(a, b string) Filter {
-				return func(bench *benchbase.Benchmark) bool {
-					return bench.Subj[a] == b
-				}
-			},
-		},
-		{
-			regexp.MustCompile(`^([a-zA-Z0-9\.]+)!=([a-zA-Z0-9\.]+)$`),
-			func(a, b string) Filter {
-				return func(bench *benchbase.Benchmark) bool {
-					return bench.Subj[a] != b
-				}
-			},
-		},
-		{
-			regexp.MustCompile(`^([a-zA-Z0-9\.]+)<([a-zA-Z0-9\.]+)$`),
-			func(a, b string) Filter {
-				return func(bench *benchbase.Benchmark) bool {
-					intA, intB, err := ParseTwoInts(bench.Subj[a], b)
-					if err != nil {
-						return bench.Subj[a] < b
-					} else {
-						return intA < intB
-					}
-				}
-			},
-		},
-		{
-			regexp.MustCompile(`^([a-zA-Z0-9\.]+)>([a-zA-Z0-9\.]+)$`),
-			func(a, b string) Filter {
-				return func(bench *benchbase.Benchmark) bool {
-					intA, intB, err := ParseTwoInts(bench.Subj[a], b)
-					if err != nil {
-						return bench.Subj[a] > b
-					} else {
-						return intA > intB
-					}
-				}
-			},
-		},
-		{
-			regexp.MustCompile(`^([a-zA-Z0-9\.]+)<=([a-zA-Z0-9\.]+)$`),
-			func(a, b string) Filter {
-				return func(bench *benchbase.Benchmark) bool {
-					intA, intB, err := ParseTwoInts(bench.Subj[a], b)
-					if err != nil {
-						return bench.Subj[a] <= b
-					} else {
-						return intA <= intB
-					}
-				}
-			},
-		},
-		{
-			regexp.MustCompile(`^([a-zA-Z0-9\.]+)>=([a-zA-Z0-9\.]+)$`),
-			func(a, b string) Filter {
-				return func(bench *benchbase.Benchmark) bool {
-					intA, intB, err := ParseTwoInts(bench.Subj[a], b)
-					if err != nil {
-						return bench.Subj[a] >= b
-					} else {
-						return intA >= intB
-					}
-				}
-			},
-		},
+	if description == "" {
+		return TrueFilter
 	}
 
 	for _, p := range patterns {
@@ -126,7 +111,9 @@ func MakeSimpleFilter(description string) Filter {
 		if len(matches) == 0 {
 			continue
 		}
-		return p.loader(matches[1], matches[2])
+		return func(bench *benchbase.Benchmark) bool {
+			return p.comparator(bench.Conf[matches[1]], matches[2])
+		}
 	}
 	log.Println("Could not read description")
 	return FalseFilter
@@ -146,5 +133,11 @@ func AndFilter(filters ...Filter) Filter {
 
 // Builds a special kind of filter
 func MakeSpecFilter(spec string, value string) Filter {
-	return TrueFilter
+	if value == "" {
+		return TrueFilter
+	}
+
+	return func(bench *benchbase.Benchmark) bool {
+		return bench.Conf[spec] == value
+	}
 }

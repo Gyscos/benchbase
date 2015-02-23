@@ -40,7 +40,7 @@ func main() {
 	http.HandleFunc("/compare", func(w http.ResponseWriter, r *http.Request) {
 		// Parameters are:
 		// * a compared spec
-		// * two filters on this spec
+		// * a set of values for that spec
 		// * a global filter
 
 		spec := r.FormValue("spec")
@@ -48,6 +48,8 @@ func main() {
 		// The global filter
 		filterJson := r.FormValue("filter")
 		filter := MakeFilter(filterJson)
+		// Main data source
+		data := data.List(filter)
 
 		// The individual filters
 		valuesJSON := r.FormValue("values")
@@ -57,18 +59,13 @@ func main() {
 			log.Println("Bad JSON received:", err)
 			return
 		}
-
-		filters := make([]Filter, len(values))
-		results := make([][][]benchbase.Benchmark, len(filters))
-		for i, v := range values {
-			filters[i] = AndFilter(filter, MakeSpecFilter(spec, v))
-			results[i] = data.List(filters[i])
-		}
-
-		result := Compare(results...)
+		// Dispatch according to spec value
+		dispatched := Dispatch(data, spec, values)
+		// Project onto similar configuration (except for spec)
+		projected := Project(dispatched, spec)
 
 		enc := json.NewEncoder(w)
-		err = enc.Encode(&result)
+		err = enc.Encode(&projected)
 		if err != nil {
 			log.Println("Error writing json:", err)
 		}

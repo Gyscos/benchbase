@@ -23,3 +23,20 @@ func (c *Configuration) Hash() string {
 
 	return b.String()
 }
+
+func (c *Configuration) PartialHash(ignoredSpec string) string {
+	var b bytes.Buffer
+
+	for key, value := range *c {
+		if key == ignoredSpec {
+			continue
+		}
+
+		b.WriteString(key)
+		b.WriteString("=")
+		b.WriteString(value)
+		b.WriteString(";")
+	}
+
+	return b.String()
+}

@@ -16,7 +16,7 @@ type Datastore struct {
 }
 
 type DatastoreDump struct {
-	Data [][]benchbase.Benchmark
+	Data []*benchbase.Benchmark
 }
 
 // Returns a new empty datastore
@@ -43,10 +43,8 @@ func LoadDatastore(filename string) (*Datastore, error) {
 	}
 
 	d := NewDatastore()
-	for _, list := range flat.Data {
-		for _, b := range list {
-			d.Store(b)
-		}
+	for _, b := range flat.Data {
+		d.Store(*b)
 	}
 
 	return d, nil
@@ -92,20 +90,16 @@ func (d *Datastore) Store(benchmark benchbase.Benchmark) {
 }
 
 // Return a list of benchmarks sorted by configuration
-func (d *Datastore) List(filter Filter) [][]benchbase.Benchmark {
+func (d *Datastore) List(filter Filter) []*benchbase.Benchmark {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
-	result := make([][]benchbase.Benchmark, 0)
+	result := make([]*benchbase.Benchmark, 0)
 	for _, list := range d.data {
-		tmp := make([]benchbase.Benchmark, 0)
 		for _, b := range list {
 			if filter(&b) {
-				tmp = append(tmp, b)
+				result = append(result, &b)
 			}
-		}
-		if len(tmp) > 0 {
-			result = append(result, tmp)
 		}
 	}
 	return result
