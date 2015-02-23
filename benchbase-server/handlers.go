@@ -3,11 +3,34 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 
 	"github.com/Gyscos/benchbase"
 )
+
+func sendError(w io.Writer, err string) error {
+	enc := json.NewEncoder(w)
+
+	return enc.Encode(struct {
+		Error string
+	}{
+		err,
+	})
+}
+
+func sendResult(w io.Writer, result interface{}) error {
+	enc := json.NewEncoder(w)
+
+	return enc.Encode(struct {
+		Error  error
+		Result interface{}
+	}{
+		nil,
+		result,
+	})
+}
 
 func makeHandlers(data *Datastore) {
 	http.HandleFunc("/push", func(w http.ResponseWriter, r *http.Request) {
@@ -41,18 +64,21 @@ func makeHandlers(data *Datastore) {
 		// Specs to ignore when projecting
 		ignoreJSON := r.FormValue("ignore")
 		var ignores []string
-		err := json.Unmarshal([]byte(ignoreJSON), &ignores)
-		if err != nil {
-			log.Println("Bad ignore JSON received:", err)
+		if ignoreJSON != "" {
+			err := json.Unmarshal([]byte(ignoreJSON), &ignores)
+			if err != nil {
+				log.Println("Bad ignore JSON received:", err)
+			}
 		}
 		ignores = append(ignores, spec)
 
 		// The individual filters
 		valuesJSON := r.FormValue("values")
 		var values []string
-		err = json.Unmarshal([]byte(valuesJSON), &values)
+		err := json.Unmarshal([]byte(valuesJSON), &values)
 		if err != nil {
 			log.Println("Bad values JSON received:", err)
+			sendError(w, "Error reading values: "+err.Error())
 			return
 		}
 		// Dispatch according to spec value
@@ -60,9 +86,7 @@ func makeHandlers(data *Datastore) {
 
 		// Project onto similar configuration (except for spec)
 		projected := Project(dispatched, ignores)
-
-		enc := json.NewEncoder(w)
-		err = enc.Encode(&projected)
+		err = sendResult(w, projected)
 		if err != nil {
 			log.Println("Error writing json:", err)
 		}
@@ -73,8 +97,7 @@ func makeHandlers(data *Datastore) {
 		f := MakeFilter(filterJson)
 
 		benchlist := data.List(f)
-		enc := json.NewEncoder(w)
-		err := enc.Encode(&benchlist)
+		err := sendResult(w, benchlist)
 		if err != nil {
 			log.Println("Error writing json:", err)
 		}
