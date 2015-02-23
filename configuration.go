@@ -1,6 +1,9 @@
 package benchbase
 
-import "bytes"
+import (
+	"bytes"
+	"sort"
+)
 
 // Configuration describes the kind of test used in a benchmark.
 // The configuration defines the fields in the result times, so
@@ -12,9 +15,25 @@ func NewConfiguration() Configuration {
 }
 
 func (c *Configuration) Hash() string {
+	return c.PartialHash()
+}
+
+func (c *Configuration) PartialHash(ignoredSpecs ...string) string {
 	var b bytes.Buffer
 
-	for key, value := range *c {
+	var keys []string
+
+	for key, _ := range *c {
+		if !contains(ignoredSpecs, key) {
+			keys = append(keys, key)
+		}
+	}
+
+	sort.StringSlice(keys).Sort()
+
+	for _, key := range keys {
+		value := (*c)[key]
+
 		b.WriteString(key)
 		b.WriteString("=")
 		b.WriteString(value)
@@ -24,19 +43,11 @@ func (c *Configuration) Hash() string {
 	return b.String()
 }
 
-func (c *Configuration) PartialHash(ignoredSpec string) string {
-	var b bytes.Buffer
-
-	for key, value := range *c {
-		if key == ignoredSpec {
-			continue
+func contains(list []string, value string) bool {
+	for _, s := range list {
+		if s == value {
+			return true
 		}
-
-		b.WriteString(key)
-		b.WriteString("=")
-		b.WriteString(value)
-		b.WriteString(";")
 	}
-
-	return b.String()
+	return false
 }

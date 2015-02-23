@@ -1,6 +1,10 @@
 package main
 
-import "github.com/Gyscos/benchbase"
+import (
+	"log"
+
+	"github.com/Gyscos/benchbase"
+)
 
 // Dispatch takes a flat list of benchmarks, and dispatch them according to
 // their value of the given spec.
@@ -23,7 +27,7 @@ func Dispatch(data []*benchbase.Benchmark, spec string, values []string) [][]*be
 
 // Project takes a list of benchmark sorted by spec value, and regroup them by
 // common configuration (except for spec)
-func Project(data [][]*benchbase.Benchmark, spec string) [][][]*benchbase.Benchmark {
+func Project(data [][]*benchbase.Benchmark, ignores []string) [][][]*benchbase.Benchmark {
 	// Number of categories to compare
 	n := len(data)
 
@@ -35,7 +39,7 @@ func Project(data [][]*benchbase.Benchmark, spec string) [][][]*benchbase.Benchm
 
 	for i, l := range data {
 		for _, b := range l {
-			key := b.Conf.PartialHash(spec)
+			key := b.Conf.PartialHash(ignores...)
 			mapList[i][key] = append(mapList[i][key], b)
 		}
 	}
@@ -69,6 +73,7 @@ func Invert(mapList []map[string][]*benchbase.Benchmark) map[string][][]*benchba
 	// Only keep populated entries
 	for key, p := range population {
 		if p < 2 {
+			log.Println("Removing", key)
 			delete(result, key)
 		}
 	}

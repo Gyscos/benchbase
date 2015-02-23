@@ -38,18 +38,28 @@ func makeHandlers(data *Datastore) {
 		// Main data source
 		data := data.List(filter)
 
+		// Specs to ignore when projecting
+		ignoreJSON := r.FormValue("ignore")
+		var ignores []string
+		err := json.Unmarshal([]byte(ignoreJSON), &ignores)
+		if err != nil {
+			log.Println("Bad ignore JSON received:", err)
+		}
+		ignores = append(ignores, spec)
+
 		// The individual filters
 		valuesJSON := r.FormValue("values")
 		var values []string
-		err := json.Unmarshal([]byte(valuesJSON), &values)
+		err = json.Unmarshal([]byte(valuesJSON), &values)
 		if err != nil {
-			log.Println("Bad JSON received:", err)
+			log.Println("Bad values JSON received:", err)
 			return
 		}
 		// Dispatch according to spec value
 		dispatched := Dispatch(data, spec, values)
+
 		// Project onto similar configuration (except for spec)
-		projected := Project(dispatched, spec)
+		projected := Project(dispatched, ignores)
 
 		enc := json.NewEncoder(w)
 		err = enc.Encode(&projected)
