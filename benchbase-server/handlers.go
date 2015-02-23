@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -40,11 +39,12 @@ func makeHandlers(data *Datastore) {
 		err := dec.Decode(&benchmark)
 		if err != nil {
 			log.Println("Error reading JSON:", err)
+			sendError(w, "Could not read the benchmark: "+err.Error())
 		}
 		// Now add it to the datastore
 		data.Store(benchmark)
 
-		fmt.Fprintln(w, `{"success":true}`)
+		sendResult(w, "OK")
 	})
 
 	http.HandleFunc("/compare", func(w http.ResponseWriter, r *http.Request) {
