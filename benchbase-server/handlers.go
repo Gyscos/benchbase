@@ -70,10 +70,14 @@ func setupHandlers(data *Datastore) {
 		}
 
 		// The global filter
-		filterJson := r.FormValue("filter")
-		filter := MakeFilter(filterJson)
+		filterJson := r.FormValue("filters")
+		filters, err := MakeFilters(filterJson)
+		if err != nil {
+			log.Println("Bad filter JSON received:", err)
+		}
+
 		// Main data source
-		data := data.List(filter, ordering, max)
+		data := data.List(filters, ordering, max)
 
 		// Specs to ignore when projecting
 		ignoreJSON := r.FormValue("ignore")
@@ -89,7 +93,7 @@ func setupHandlers(data *Datastore) {
 		// The individual filters
 		valuesJSON := r.FormValue("values")
 		var values []string
-		err := json.Unmarshal([]byte(valuesJSON), &values)
+		err = json.Unmarshal([]byte(valuesJSON), &values)
 		if err != nil {
 			log.Println("Bad values JSON received:", err)
 			sendError(w, "Error reading values: "+err.Error())
@@ -107,22 +111,25 @@ func setupHandlers(data *Datastore) {
 	})
 
 	r.HandleFunc("/list", func(w http.ResponseWriter, r *http.Request) {
-		filterJson := r.FormValue("filter")
-		f := MakeFilter(filterJson)
+		filterJson := r.FormValue("filters")
+		f, err := MakeFilters(filterJson)
+		if err != nil {
+			log.Println("Bad filter JSON received:", err)
+		}
 
 		maxString := r.FormValue("max")
 		max, _ := strconv.Atoi(maxString)
 		sortJSON := r.FormValue("sort")
 		var ordering []string
 		if sortJSON != "" {
-			err := json.Unmarshal([]byte(sortJSON), &ordering)
+			err = json.Unmarshal([]byte(sortJSON), &ordering)
 			if err != nil {
 				log.Println("Bad sort JSON received:", err)
 			}
 		}
 
 		benchlist := data.List(f, ordering, max)
-		err := sendResult(w, benchlist)
+		err = sendResult(w, benchlist)
 		if err != nil {
 			log.Println("Error writing json:", err)
 		}

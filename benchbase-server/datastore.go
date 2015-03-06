@@ -2,16 +2,65 @@ package main
 
 import (
 	"encoding/json"
+	"log"
 	"os"
 	"sync"
 
 	"github.com/Gyscos/benchbase"
 )
 
+type SpecMap map[string]*SpecList
+
+func (m *SpecMap) add(b *benchbase.Benchmark, id int) {
+	for spec, value := range b.Conf {
+		l := (*m)[spec]
+		if l == nil {
+			l = &SpecList{}
+			(*m)[spec] = l
+		}
+
+		l.add(value, id)
+	}
+}
+
+type SpecList struct {
+	entries [][]int
+	values  []string
+}
+
+func (s *SpecList) insert(i int, value string, id int) {
+	s.entries = append(s.entries, nil)
+	copy(s.entries[i+1:], s.entries[i:])
+	s.entries[i] = []int{id}
+
+	s.values = append(s.values, "")
+	copy(s.values[i+1:], s.values[i:])
+	s.values[i] = value
+}
+
+func (s *SpecList) add(value string, id int) {
+	for i, v := range s.values {
+
+		if v == value {
+			s.entries[i] = append(s.entries[i], id)
+			return
+		} else if v > value {
+			// Insert
+			s.insert(i, value, id)
+			return
+		}
+	}
+
+	s.entries = append(s.entries, []int{id})
+	s.values = append(s.values, value)
+}
+
 // Datastore stores Benchmark and allow to get then through filters.
 // Currently implemented as a simple list of benchmarks for each configuration.
 type Datastore struct {
-	data  map[string][]*benchbase.Benchmark
+	data    []*benchbase.Benchmark
+	indices SpecMap
+
 	mutex sync.RWMutex
 }
 
@@ -22,7 +71,7 @@ type DatastoreDump struct {
 // Returns a new empty datastore
 func NewDatastore() *Datastore {
 	return &Datastore{
-		data: make(map[string][]*benchbase.Benchmark),
+		indices: make(map[string]*SpecList),
 	}
 }
 
@@ -72,9 +121,8 @@ func (d *Datastore) SaveToDisk(filename string) error {
 	// Compress?
 
 	enc := json.NewEncoder(f)
-	flat := d.List(TrueFilter, nil, 0)
 
-	err = enc.Encode(&DatastoreDump{flat})
+	err = enc.Encode(&DatastoreDump{d.data})
 
 	return err
 }
@@ -84,23 +132,85 @@ func (d *Datastore) Store(benchmark *benchbase.Benchmark) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
-	// We sort benchmark by configuration
-	hash := benchmark.Conf.Hash()
-	d.data[hash] = append(d.data[hash], benchmark)
+	log.Println("Storing...")
+
+	i := len(d.data)
+	d.data = append(d.data, benchmark)
+
+	d.indices.add(benchmark, i)
 }
 
-// Return a list of benchmarks sorted by configuration
-func (d *Datastore) List(filter Filter, ordering []string, max int) []*benchbase.Benchmark {
+// FilterIDs return a subset of the given ids, passing the filters, and sorted by the ordering list.
+func (d *Datastore) FilterIDs(list []int, filters map[string]SpecFilter, ordering []string, max int) []int {
+	if len(list) == 0 {
+		return nil
+	}
+
+	// We are at the bottom of the recursion: just return the current candidates
+	if len(ordering) == 0 {
+		if max > 0 && len(list) > max {
+			return list[:max]
+		} else {
+			return list
+		}
+	}
+
+	// We will look at the sorted keys for the first spec, and recurse.
+	spec := ordering[0]
+	keys := d.indices[spec].values
+	var keyIds []int
+	// The filters can reduce the number of available keys.
+	filter := filters[spec]
+	if filter != nil {
+		log.Println("Filtering!")
+		keyIds = filter(keys)
+	} else {
+		keyIds = consecutive(0, len(keys))
+	}
+
+	var result []int
+
+	for _, i := range keyIds {
+		r := d.FilterIDs(intersection(list, d.indices[spec].entries[i]), filters, ordering[1:], max-len(result))
+		result = append(result, r...)
+		if len(result) == max {
+			break
+		}
+	}
+
+	return result
+}
+
+func contains(list []string, value string) bool {
+	for _, v := range list {
+		if v == value {
+			return true
+		}
+	}
+	return false
+}
+
+func (d *Datastore) completeOrdering(ordering []string) []string {
+	result := append(make([]string, 0, len(d.indices)), ordering...)
+
+	for spec, _ := range d.indices {
+		if !contains(ordering, spec) {
+			result = append(result, spec)
+		}
+	}
+
+	return result
+}
+
+func (d *Datastore) List(filters map[string]SpecFilter, ordering []string, max int) []*benchbase.Benchmark {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
-	result := make([]*benchbase.Benchmark, 0)
-	for _, list := range d.data {
-		for _, b := range list {
-			if filter(b) {
-				result = append(result, b)
-			}
-		}
+	ids := consecutive(0, len(d.data))
+	ids = d.FilterIDs(ids, filters, d.completeOrdering(ordering), max)
+	result := make([]*benchbase.Benchmark, len(ids))
+	for i, id := range ids {
+		result[i] = d.data[id]
 	}
 	return result
 }

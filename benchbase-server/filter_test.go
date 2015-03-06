@@ -10,9 +10,12 @@ func TestFilter(t *testing.T) {
 	b := benchbase.NewBenchmark()
 	b.Conf["rev"] = "118"
 
-	f := MakeFilter("rev>=110")
+	f, err := MakeFilters(`{"Rev":">=118"}`)
+	if err != nil {
+		t.Error(err)
+	}
 
-	if !f(b) {
+	if !f["Rev"](b.Conf["Rev"]) {
 		t.Error("Should accept the host.")
 	}
 

@@ -1,74 +1,129 @@
 package main
 
 import (
-	"log"
+	"encoding/json"
 	"regexp"
 	"strconv"
-	"strings"
-
-	"github.com/Gyscos/benchbase"
 )
 
-type Filter func(*benchbase.Benchmark) bool
-
-var FalseFilter Filter = func(b *benchbase.Benchmark) bool {
-	return false
-}
-
-var TrueFilter Filter = func(b *benchbase.Benchmark) bool {
-	return true
-}
-
 var patterns = []struct {
-	pattern    *regexp.Regexp
-	comparator func(a, b string) bool
+	pattern  *regexp.Regexp
+	minMatch int
+	filter   func([]string, []string) []int
 }{
 	{
-		regexp.MustCompile(`^([a-zA-Z0-9\.]+)=([a-zA-Z0-9\.]+)$`),
-		func(a, b string) bool {
-			return a == b
+		regexp.MustCompile(`^=([a-zA-Z0-9\.]+)$`),
+		2,
+		func(values []string, matches []string) []int {
+			for i, v := range values {
+				if v == matches[1] {
+					return []int{i}
+				}
+			}
+			return nil
 		},
 	},
 	{
-		regexp.MustCompile(`^([a-zA-Z0-9\.]+)!=([a-zA-Z0-9\.]+)$`),
-		func(a, b string) bool {
-			return a != b
+		regexp.MustCompile(`^!=([a-zA-Z0-9\.]+)$`),
+		2,
+		func(values []string, matches []string) []int {
+			var result []int
+			for i, v := range values {
+				if v != matches[1] {
+					result = append(result, i)
+				}
+			}
+			return result
 		},
 	},
 	{
-		regexp.MustCompile(`^([a-zA-Z0-9\.]+)<([a-zA-Z0-9\.]+)$`),
-		func(a, b string) bool {
-			return Less(a, b)
+		regexp.MustCompile(`^<([a-zA-Z0-9\.]+)$`),
+		2,
+		func(values []string, matches []string) []int {
+			var result []int
+			for i, v := range values {
+				if Less(v, matches[1]) {
+					result = append(result, i)
+				} else {
+					break
+				}
+			}
+			return result
 		},
 	},
 	{
-		regexp.MustCompile(`^([a-zA-Z0-9\.]+)>([a-zA-Z0-9\.]+)$`),
-		func(a, b string) bool {
-			return Less(b, a)
+		regexp.MustCompile(`^>([a-zA-Z0-9\.]+)$`),
+		2,
+		func(values []string, matches []string) []int {
+			var result []int
+			n := len(values)
+			for i := 0; i < n; i++ {
+				v := values[n-i-1]
+				if Less(matches[1], v) {
+					result = append(result, i)
+				} else {
+					break
+				}
+			}
+			// Now invert
+			return invert(result)
 		},
 	},
 	{
-		regexp.MustCompile(`^([a-zA-Z0-9\.]+)<=([a-zA-Z0-9\.]+)$`),
-		func(a, b string) bool {
-			return LessEq(a, b)
+		regexp.MustCompile(`^<=([a-zA-Z0-9\.]+)$`),
+		2,
+		func(values []string, matches []string) []int {
+			var result []int
+			for i, v := range values {
+				if LessEq(v, matches[1]) {
+					result = append(result, i)
+				} else {
+					break
+				}
+			}
+			return result
 		},
 	},
 	{
-		regexp.MustCompile(`^([a-zA-Z0-9\.]+)>=([a-zA-Z0-9\.]+)$`),
-		func(a, b string) bool {
-			return LessEq(b, a)
+		regexp.MustCompile(`^>=([a-zA-Z0-9\.]+)$`),
+		2,
+		func(values []string, matches []string) []int {
+			var result []int
+			n := len(values)
+			for i := 0; i < n; i++ {
+				v := values[n-i-1]
+				if Less(matches[1], v) {
+					result = append(result, i)
+				} else {
+					break
+				}
+			}
+			// Now invert
+			return invert(result)
 		},
 	},
 }
 
-func MakeFilter(description string) Filter {
-	var filters []Filter
-	rules := strings.Split(description, ";")
-	for _, rule := range rules {
-		filters = append(filters, MakeSimpleFilter(rule))
+type SpecFilter func([]string) []int
+
+func MakeFilters(description string) (map[string]SpecFilter, error) {
+	filters := make(map[string]SpecFilter)
+
+	if description == "" {
+		return filters, nil
 	}
 
-	return AndFilter(filters...)
+	var filterData map[string]string
+	err := json.Unmarshal([]byte(description), &filterData)
+	if err != nil {
+		return nil, err
+	}
+
+	for k, data := range filterData {
+		filters[k] = MakeFilter(data)
+	}
+
+	return filters, nil
 }
 
 func ParseTwoInts(a, b string) (int64, int64, error) {
@@ -97,47 +152,18 @@ func LessEq(a, b string) bool {
 	return (a == b) || (Less(a, b))
 }
 
-// Builds a Filter from the string description
-// Examples:
-// - host=c3.xlarge
-// - rev>=11158
-func MakeSimpleFilter(description string) Filter {
-	if description == "" {
-		return TrueFilter
-	}
-
+func MakeFilter(data string) SpecFilter {
 	for _, p := range patterns {
-		matches := p.pattern.FindStringSubmatch(description)
-		if len(matches) == 0 {
+		matches := p.pattern.FindStringSubmatch(data)
+		if len(matches) < p.minMatch {
 			continue
 		}
-		return func(bench *benchbase.Benchmark) bool {
-			return p.comparator(bench.Conf[matches[1]], matches[2])
+		return func(values []string) []int {
+			return p.filter(values, matches)
 		}
 	}
-	log.Println("Could not read description")
-	return FalseFilter
-}
 
-func AndFilter(filters ...Filter) Filter {
-
-	return func(b *benchbase.Benchmark) bool {
-		for _, f := range filters {
-			if !f(b) {
-				return false
-			}
-		}
-		return true
-	}
-}
-
-// Builds a special kind of filter
-func MakeSpecFilter(spec string, value string) Filter {
-	if value == "" {
-		return TrueFilter
-	}
-
-	return func(bench *benchbase.Benchmark) bool {
-		return bench.Conf[spec] == value
+	return func([]string) []int {
+		return nil
 	}
 }
