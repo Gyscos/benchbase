@@ -11,7 +11,7 @@ import (
 // Datastore stores Benchmark and allow to get then through filters.
 // Currently implemented as a simple list of benchmarks for each configuration.
 type Datastore struct {
-	data  map[string][]benchbase.Benchmark
+	data  map[string][]*benchbase.Benchmark
 	mutex sync.RWMutex
 }
 
@@ -22,7 +22,7 @@ type DatastoreDump struct {
 // Returns a new empty datastore
 func NewDatastore() *Datastore {
 	return &Datastore{
-		data: make(map[string][]benchbase.Benchmark),
+		data: make(map[string][]*benchbase.Benchmark),
 	}
 }
 
@@ -44,7 +44,7 @@ func LoadDatastore(filename string) (*Datastore, error) {
 
 	d := NewDatastore()
 	for _, b := range flat.Data {
-		d.Store(*b)
+		d.Store(b)
 	}
 
 	return d, nil
@@ -72,7 +72,7 @@ func (d *Datastore) SaveToDisk(filename string) error {
 	// Compress?
 
 	enc := json.NewEncoder(f)
-	flat := d.List(TrueFilter)
+	flat := d.List(TrueFilter, nil, 0)
 
 	err = enc.Encode(&DatastoreDump{flat})
 
@@ -80,7 +80,7 @@ func (d *Datastore) SaveToDisk(filename string) error {
 }
 
 // Stores a benchmark in the database
-func (d *Datastore) Store(benchmark benchbase.Benchmark) {
+func (d *Datastore) Store(benchmark *benchbase.Benchmark) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
@@ -90,15 +90,15 @@ func (d *Datastore) Store(benchmark benchbase.Benchmark) {
 }
 
 // Return a list of benchmarks sorted by configuration
-func (d *Datastore) List(filter Filter) []*benchbase.Benchmark {
+func (d *Datastore) List(filter Filter, ordering []string, max int) []*benchbase.Benchmark {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
 	result := make([]*benchbase.Benchmark, 0)
 	for _, list := range d.data {
 		for _, b := range list {
-			if filter(&b) {
-				result = append(result, &b)
+			if filter(b) {
+				result = append(result, b)
 			}
 		}
 	}

@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/Gyscos/benchbase"
 )
@@ -45,7 +46,7 @@ func setupHandlers(data *Datastore) {
 			sendError(w, "Could not read the benchmark: "+err.Error())
 		}
 		// Now add it to the datastore
-		data.Store(benchmark)
+		data.Store(&benchmark)
 
 		sendResult(w, "OK")
 	})
@@ -57,12 +58,22 @@ func setupHandlers(data *Datastore) {
 		// * a global filter
 
 		spec := r.FormValue("spec")
+		maxString := r.FormValue("max")
+		max, _ := strconv.Atoi(maxString)
+		sortJSON := r.FormValue("sort")
+		var ordering []string
+		if sortJSON != "" {
+			err := json.Unmarshal([]byte(sortJSON), &ordering)
+			if err != nil {
+				log.Println("Bad sort JSON received:", err)
+			}
+		}
 
 		// The global filter
 		filterJson := r.FormValue("filter")
 		filter := MakeFilter(filterJson)
 		// Main data source
-		data := data.List(filter)
+		data := data.List(filter, ordering, max)
 
 		// Specs to ignore when projecting
 		ignoreJSON := r.FormValue("ignore")
@@ -99,7 +110,18 @@ func setupHandlers(data *Datastore) {
 		filterJson := r.FormValue("filter")
 		f := MakeFilter(filterJson)
 
-		benchlist := data.List(f)
+		maxString := r.FormValue("max")
+		max, _ := strconv.Atoi(maxString)
+		sortJSON := r.FormValue("sort")
+		var ordering []string
+		if sortJSON != "" {
+			err := json.Unmarshal([]byte(sortJSON), &ordering)
+			if err != nil {
+				log.Println("Bad sort JSON received:", err)
+			}
+		}
+
+		benchlist := data.List(f, ordering, max)
 		err := sendResult(w, benchlist)
 		if err != nil {
 			log.Println("Error writing json:", err)
