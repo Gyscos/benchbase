@@ -93,7 +93,7 @@ var patterns = []struct {
 			n := len(values)
 			for i := n - 1; i >= 0; i-- {
 				v := values[i]
-				if Less(matches[1], v) {
+				if LessEq(matches[1], v) {
 					result = append(result, i)
 				} else {
 					break
