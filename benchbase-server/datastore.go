@@ -162,7 +162,6 @@ func (d *Datastore) FilterIDs(list []int, filters map[string]SpecFilter, orderin
 	// The filters can reduce the number of available keys.
 	filter := filters[spec]
 	if filter != nil {
-		log.Println("Filtering!")
 		keyIds = filter(keys)
 	} else {
 		keyIds = consecutive(0, len(keys))
