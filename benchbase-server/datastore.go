@@ -213,7 +213,8 @@ func (d *Datastore) List(filters map[string]SpecFilter, ordering []string, max i
 	defer d.mutex.RUnlock()
 
 	ids := consecutive(0, len(d.data))
-	ids = d.FilterIDs(ids, filters, d.completeOrdering(ordering), max)
+	completeOrder := d.completeOrdering(ordering)
+	ids = d.FilterIDs(ids, filters, completeOrder, max)
 	result := make([]*benchbase.Benchmark, len(ids))
 	for i, id := range ids {
 		result[i] = d.data[id]

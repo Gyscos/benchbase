@@ -60,7 +60,7 @@ func setupHandlers(data *Datastore) {
 		spec := r.FormValue("spec")
 		maxString := r.FormValue("max")
 		max, _ := strconv.Atoi(maxString)
-		sortJSON := r.FormValue("sort")
+		sortJSON := r.FormValue("ordering")
 		var ordering []string
 		if sortJSON != "" {
 			err := json.Unmarshal([]byte(sortJSON), &ordering)
@@ -119,7 +119,7 @@ func setupHandlers(data *Datastore) {
 
 		maxString := r.FormValue("max")
 		max, _ := strconv.Atoi(maxString)
-		sortJSON := r.FormValue("sort")
+		sortJSON := r.FormValue("ordering")
 		var ordering []string
 		if sortJSON != "" {
 			err = json.Unmarshal([]byte(sortJSON), &ordering)
