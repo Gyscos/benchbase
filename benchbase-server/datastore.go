@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"log"
 	"os"
 	"sync"
 
@@ -131,8 +130,6 @@ func (d *Datastore) SaveToDisk(filename string) error {
 func (d *Datastore) Store(benchmark *benchbase.Benchmark) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
-
-	log.Println("Storing...")
 
 	i := len(d.data)
 	d.data = append(d.data, benchmark)
