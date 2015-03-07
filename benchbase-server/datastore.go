@@ -169,8 +169,11 @@ func (d *Datastore) FilterIDs(list []int, filters map[string]SpecFilter, orderin
 
 	var result []int
 
-	for _, i := range keyIds {
-		r := d.FilterIDs(intersection(list, d.indices[spec].entries[i]), filters, ordering[1:], max-len(result))
+	n := len(keyIds)
+	for i, _ := range keyIds {
+		// We go backward to get the [max] latest.
+		keyId := keyIds[n-i]
+		r := d.FilterIDs(intersection(list, d.indices[spec].entries[keyId]), filters, ordering[1:], max-len(result))
 		result = append(result, r...)
 		if len(result) == max {
 			break
