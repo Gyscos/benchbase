@@ -33,7 +33,7 @@ var patterns = []struct {
 					result = append(result, i)
 				}
 			}
-			return result
+			return invert(result)
 		},
 	},
 	{
@@ -49,6 +49,7 @@ var patterns = []struct {
 				}
 			}
 			return result
+			return invert(result)
 		},
 	},
 	{
@@ -57,8 +58,8 @@ var patterns = []struct {
 		func(values []string, matches []string) []int {
 			var result []int
 			n := len(values)
-			for i := 0; i < n; i++ {
-				v := values[n-i-1]
+			for i := n - 1; i >= 0; i-- {
+				v := values[i]
 				if Less(matches[1], v) {
 					result = append(result, i)
 				} else {
@@ -66,7 +67,8 @@ var patterns = []struct {
 				}
 			}
 			// Now invert
-			return invert(result)
+			// return invert(result)
+			return result
 		},
 	},
 	{
@@ -81,7 +83,7 @@ var patterns = []struct {
 					break
 				}
 			}
-			return result
+			return invert(result)
 		},
 	},
 	{
@@ -90,8 +92,8 @@ var patterns = []struct {
 		func(values []string, matches []string) []int {
 			var result []int
 			n := len(values)
-			for i := 0; i < n; i++ {
-				v := values[n-i-1]
+			for i := n - 1; i >= 0; i-- {
+				v := values[i]
 				if Less(matches[1], v) {
 					result = append(result, i)
 				} else {
@@ -99,7 +101,8 @@ var patterns = []struct {
 				}
 			}
 			// Now invert
-			return invert(result)
+			// return invert(result)
+			return result
 		},
 	},
 }

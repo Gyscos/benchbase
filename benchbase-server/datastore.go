@@ -164,15 +164,13 @@ func (d *Datastore) FilterIDs(list []int, filters map[string]SpecFilter, orderin
 	if filter != nil {
 		keyIds = filter(keys)
 	} else {
-		keyIds = consecutive(0, len(keys))
+		keyIds = invert(consecutive(0, len(keys)))
 	}
 
 	var result []int
 
-	n := len(keyIds)
-	for i, _ := range keyIds {
+	for _, keyId := range keyIds {
 		// We go backward to get the [max] latest.
-		keyId := keyIds[n-i-1]
 		newMax := 0
 		if max > 0 {
 			newMax = max - len(result)
