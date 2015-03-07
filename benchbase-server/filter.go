@@ -48,7 +48,6 @@ var patterns = []struct {
 					break
 				}
 			}
-			return result
 			return invert(result)
 		},
 	},
@@ -67,8 +66,8 @@ var patterns = []struct {
 				}
 			}
 			// Now invert
-			// return invert(result)
-			return result
+			return invert(result)
+			// return result
 		},
 	},
 	{
@@ -101,8 +100,8 @@ var patterns = []struct {
 				}
 			}
 			// Now invert
-			// return invert(result)
-			return result
+			return invert(result)
+			// return result
 		},
 	},
 }
