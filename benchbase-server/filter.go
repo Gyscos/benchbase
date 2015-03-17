@@ -99,6 +99,27 @@ var patterns = []struct {
 		},
 	},
 	{
+		regexp.MustCompile(`^in\(([a-zA-Z0-9\.]+),([a-zA-Z0-9\.]+)\)$`),
+		3,
+		func(values []string, matches []string) []int {
+			var result []int
+			for i, v := range values {
+				if LessEq(matches[1], v) {
+					// We are above the first marker
+					if LessEq(v, matches[2]) {
+						// And under the second
+						result = append(result, i)
+					} else {
+						break
+					}
+				}
+			}
+			// Now invert
+			return invert(result)
+			// return result
+		},
+	},
+	{
 		regexp.MustCompile(`^>=([a-zA-Z0-9\.]+)$`),
 		2,
 		func(values []string, matches []string) []int {
