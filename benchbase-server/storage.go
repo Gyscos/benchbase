@@ -8,6 +8,15 @@ import (
 )
 
 func LoadDatastore(filename string) (*Datastore, error) {
+	d, err := load(filename, true)
+	if err == nil {
+		return d, nil
+	}
+
+	return load(filename, false)
+}
+
+func load(filename string, compress bool) (*Datastore, error) {
 	f, err := os.Open(filename)
 	if err != nil {
 		return nil, err
@@ -16,8 +25,12 @@ func LoadDatastore(filename string) (*Datastore, error) {
 
 	// Decompress?
 	var r io.Reader
-	r, err = gzip.NewReader(f)
-	if err != nil {
+	if compress {
+		r, err = gzip.NewReader(f)
+		if err != nil {
+			return nil, err
+		}
+	} else {
 		r = f
 	}
 
