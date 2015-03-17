@@ -1,5 +1,7 @@
 /benchbase
 /benchbase-server/benchbase-server
+/benchbase-server/data.json
+/benchbase-server/data.gz
 /benchbase-ui/benchbase-ui
 /benchbase-example/benchbase-example
 *.swp

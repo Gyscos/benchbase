@@ -1,8 +1,6 @@
 package main
 
 import (
-	"encoding/json"
-	"os"
 	"sync"
 
 	"github.com/Gyscos/benchbase"
@@ -74,30 +72,6 @@ func NewDatastore() *Datastore {
 	}
 }
 
-func LoadDatastore(filename string) (*Datastore, error) {
-	f, err := os.Open(filename)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	// Decompress?
-
-	dec := json.NewDecoder(f)
-	var flat DatastoreDump
-	err = dec.Decode(&flat)
-	if err != nil {
-		return nil, err
-	}
-
-	d := NewDatastore()
-	for _, b := range flat.Data {
-		d.Store(b)
-	}
-
-	return d, nil
-}
-
 func GetDatastore(filename string) *Datastore {
 	d, err := LoadDatastore(filename)
 	if err != nil {
@@ -105,25 +79,6 @@ func GetDatastore(filename string) *Datastore {
 	} else {
 		return d
 	}
-}
-
-func (d *Datastore) SaveToDisk(filename string) error {
-	d.mutex.RLock()
-	defer d.mutex.RUnlock()
-
-	f, err := os.Create(filename)
-	if err != nil {
-		return nil
-	}
-	defer f.Close()
-
-	// Compress?
-
-	enc := json.NewEncoder(f)
-
-	err = enc.Encode(&DatastoreDump{d.data})
-
-	return err
 }
 
 // Stores a benchmark in the database

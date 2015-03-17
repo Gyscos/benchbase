@@ -19,14 +19,26 @@ import (
 
 func main() {
 
-	var dataFilename string
+	var inputFilename string
+	var outputFilename string
 	var port int
+	var compress bool
 
-	flag.StringVar(&dataFilename, "d", "data.json", "File to save and load the database.")
-	flag.IntVar(&port, "p", 6666, "Port to listen to.")
+	flag.BoolVar(&compress, "z", false, "Compress the database dump on disk.")
+	flag.StringVar(&outputFilename, "o", "", "File to save the database to. Leave blank to use the input file.")
+	flag.StringVar(&inputFilename, "i", "", "Input file. Leave blank to use the output file.")
+	flag.IntVar(&port, "p", 2539, "Port to listen to.")
 	flag.Parse()
 
-	data := GetDatastore(dataFilename)
+	if outputFilename == "" {
+		outputFilename = inputFilename
+	}
+
+	if inputFilename == "" {
+		inputFilename = outputFilename
+	}
+
+	data := GetDatastore(inputFilename)
 
 	// Makes the "push", "list" and "compare" HTTP handlers
 	setupHandlers(data)
@@ -34,7 +46,7 @@ func main() {
 	// Save to disk every 5 minutes
 	go func() {
 		for _ = range time.Tick(5 * time.Minute) {
-			data.SaveToDisk(dataFilename)
+			data.SaveToDisk(outputFilename, compress)
 		}
 	}()
 
@@ -44,7 +56,7 @@ func main() {
 	go func() {
 		for _ = range c {
 			log.Println("Saving database...")
-			data.SaveToDisk(dataFilename)
+			data.SaveToDisk(outputFilename, compress)
 			log.Fatal("Exiting now.")
 		}
 	}()
