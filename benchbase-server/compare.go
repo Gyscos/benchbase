@@ -1,10 +1,6 @@
 package main
 
-import (
-	"log"
-
-	"github.com/Gyscos/benchbase"
-)
+import "github.com/Gyscos/benchbase"
 
 // Dispatch takes a flat list of benchmarks, and dispatch them according to
 // their value of the given spec.
@@ -73,7 +69,7 @@ func Invert(mapList []map[string][]*benchbase.Benchmark) map[string][][]*benchba
 	// Only keep populated entries
 	for key, p := range population {
 		if p < 2 {
-			log.Println("Removing", key)
+			// log.Println("Removing", key)
 			delete(result, key)
 		}
 	}
