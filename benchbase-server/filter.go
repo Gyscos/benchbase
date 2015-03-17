@@ -12,6 +12,19 @@ var patterns = []struct {
 	filter   func([]string, []string) []int
 }{
 	{
+		// No sign means equality
+		regexp.MustCompile(`^([a-zA-Z0-9\.]+)$`),
+		2,
+		func(values []string, matches []string) []int {
+			for i, v := range values {
+				if v == matches[1] {
+					return []int{i}
+				}
+			}
+			return nil
+		},
+	},
+	{
 		regexp.MustCompile(`^=([a-zA-Z0-9\.]+)$`),
 		2,
 		func(values []string, matches []string) []int {
