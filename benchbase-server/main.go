@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"time"
 )
 
@@ -39,6 +40,7 @@ func main() {
 	}
 
 	data := GetDatastore(inputFilename)
+	var diskMutex sync.Mutex
 
 	// Makes the "push", "list" and "compare" HTTP handlers
 	setupHandlers(data)
@@ -46,7 +48,9 @@ func main() {
 	// Save to disk every 5 minutes
 	go func() {
 		for _ = range time.Tick(5 * time.Minute) {
+			diskMutex.Lock()
 			data.SaveToDisk(outputFilename, compress)
+			diskMutex.Unlock()
 		}
 	}()
 
@@ -55,9 +59,11 @@ func main() {
 	signal.Notify(c, os.Interrupt)
 	go func() {
 		for _ = range c {
+			diskMutex.Lock()
 			log.Println("Saving database...")
 			data.SaveToDisk(outputFilename, compress)
 			log.Fatal("Exiting now.")
+			diskMutex.Unlock()
 		}
 	}()
 

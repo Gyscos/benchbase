@@ -53,6 +53,8 @@ func (d *Datastore) SaveToDisk(filename string, compress bool) error {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
+	os.Rename(filename, filename+".previous")
+
 	f, err := os.Create(filename)
 	if err != nil {
 		return nil
